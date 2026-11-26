@@ -407,3 +407,15 @@ input:focus, select:focus, textarea:focus { outline: 2px solid var(--ai); outlin
   .pc-qr img { width: 26mm; height: 26mm; display: block; }
   #print-card > p { margin-top: 4mm; font-size: 8pt; color: #555; }
 }
+
+/* Other emergency numbers (ambulance, police, fire) */
+.other-numbers { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; }
+.other-numbers:empty { display: none; }
+.num-btn { display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--red); color: var(--red); background: var(--surface); text-decoration: none; font-size: 0.85rem; font-weight: 600; }
+.num-btn strong { font-family: var(--font-display); font-weight: 800; }
+.rv .other-numbers { margin-top: -4px; }
+
+/* Install steps shown when the browser has no install prompt */
+.install-steps { margin-top: 12px; padding: 12px 14px; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); font-size: 0.9rem; display: grid; gap: 8px; }
+.install-steps ol { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; }
+.install-steps .kbd { display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); font-weight: 700; }

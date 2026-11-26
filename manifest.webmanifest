@@ -2,6 +2,7 @@
   "name": "Lifeline ICE: emergency medical ID",
   "short_name": "Lifeline",
   "description": "Your medical ID on the lock screen, one-hold SOS with location, and a live responder page.",
+  "id": "./",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

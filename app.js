@@ -36,7 +36,9 @@ const SOS_HOLD_MS = 2000;
 const TEXT_FIELDS = ['name', 'dob', 'blood', 'country', 'allergies', 'conditions', 'medications', 'notes', 'doctorName', 'doctorPhone'];
 
 const COUNTRIES = {
-  IN: { name: 'India', number: '112' },
+  // 112 is India's single emergency number (police, fire, ambulance).
+  // The older direct numbers still work, so the app shows them too.
+  IN: { name: 'India', number: '112', more: [['Ambulance', '108'], ['Police', '100'], ['Fire', '101']] },
   US: { name: 'United States / Canada', number: '911' },
   GB: { name: 'United Kingdom', number: '999' },
   EU: { name: 'European Union', number: '112' },
@@ -173,6 +175,12 @@ function formatDate(iso) {
 
 function emergencyNumber(data) {
   return (COUNTRIES[data.country] || COUNTRIES.IN).number;
+}
+
+/** Small call buttons for a country's other numbers, e.g. ambulance 108 in India. */
+function otherNumbers(data) {
+  const more = (COUNTRIES[data.country] || COUNTRIES.IN).more || [];
+  return more.map(([label, num]) => el('a', { class: 'num-btn', href: `tel:${num}`, 'aria-label': `Call ${label} ${num}` }, label, ' ', el('strong', { text: num })));
 }
 
 function telHref(phone) {
@@ -435,6 +443,7 @@ function renderResponder(root, data, opts = {}) {
 
     el('a', { class: 'btn btn-call btn-block rv-sos', href: `tel:${number}` },
       `${L.callEmergency} · ${number}`),
+    el('div', { class: 'other-numbers' }, otherNumbers(data)),
 
     el('section', { class: 'rv-alert' + (allergies ? '' : ' is-none') },
       el('h3', { text: L.allergies }),
@@ -789,6 +798,8 @@ function refresh() {
   $('home-call').href = `tel:${number}`;
   $('sheet-call').textContent = `Call ${number}`;
   $('sheet-call').href = `tel:${number}`;
+  $('home-numbers').replaceChildren(...otherNumbers(data));
+  $('sheet-numbers').replaceChildren(...otherNumbers(data));
   $('example-banner').hidden = !store.isExample;
 
   renderReadiness(person);
@@ -809,7 +820,7 @@ function renderReadiness(person) {
     { ok: Boolean(d.allergies || d.conditions || d.medications), text: 'Allergies, conditions or medications', go: 'edit' },
     { ok: contacts.some((c) => /\+/.test(c.phone)), text: 'A contact with a country code (+91…)', go: 'edit' },
     { ok: person.pinned && notifPermission() === 'granted', text: 'Pinned to your lock screen', go: 'pin' },
-    { ok: isStandalone, text: 'Installed as an app (works offline)', go: 'install' },
+    { ok: isInstalled(), text: 'Installed as an app (works offline)', go: 'install' },
   ];
   const done = checks.filter((c) => c.ok).length;
   const score = Math.round((done / checks.length) * 100);
@@ -823,7 +834,8 @@ function renderReadiness(person) {
       type: 'button', class: 'link-btn',
       onclick: () => {
         if (c.go === 'edit') showView('edit');
-        else document.getElementById(c.go === 'pin' ? 'lock-title' : 'install-title').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        else if (c.go === 'install') { $('install-title').scrollIntoView({ behavior: 'smooth', block: 'center' }); installApp(); }
+        else $('lock-title').scrollIntoView({ behavior: 'smooth', block: 'center' });
       },
     }, 'Fix'))));
 }
@@ -1044,6 +1056,7 @@ async function openSheet(kind, data) {
   $('sheet-title').textContent = kind === 'sos' ? 'SOS: get help' : 'Tell their family';
   $('sheet-call').textContent = `Call ${number}`;
   $('sheet-call').href = `tel:${number}`;
+  $('sheet-numbers').replaceChildren(...otherNumbers(data));
   $('sheet').hidden = false;
   document.body.classList.add('no-scroll');
   $('sheet-close').focus();
@@ -1297,25 +1310,82 @@ function updateAiUi() {
 
 /* ---------- 12. Install, print, backup ---------- */
 
+// Chrome, Edge and Samsung Internet fire "beforeinstallprompt" when the
+// site can be installed; we keep it and show the real install dialog when
+// the button is pressed. Safari, Firefox and in-app browsers never fire it,
+// and Chrome skips it when the app is already installed, so then we show
+// the steps for that browser instead of doing nothing.
 let installEvent = null;
+const INSTALLED_KEY = 'lifeline:installed';
+
+function isInstalled() {
+  if (isStandalone) return true;
+  try { return localStorage.getItem(INSTALLED_KEY) === '1'; } catch (err) { return false; }
+}
+
+function markInstalled() {
+  try { localStorage.setItem(INSTALLED_KEY, '1'); } catch (err) { /* storage blocked */ }
+}
+
+/** Which browser we are in, for the right install steps. */
+function browserKind() {
+  const ua = navigator.userAgent;
+  if (/FBAN|FBAV|Instagram|Line\/|WhatsApp|Snapchat|; wv\)/i.test(ua)) return 'inapp';
+  if (isIos) return /CriOS|FxiOS|EdgiOS/.test(ua) ? 'ios-other' : 'ios-safari';
+  if (/Android/i.test(ua)) return /SamsungBrowser/i.test(ua) ? 'samsung' : /Firefox/i.test(ua) ? 'android-firefox' : 'android';
+  if (/Firefox/i.test(ua)) return 'desktop-firefox';
+  if (/Safari/i.test(ua) && !/Chrome|Chromium|Edg/i.test(ua)) return 'mac-safari';
+  return 'desktop-chrome';
+}
+
+const INSTALL_STEPS = {
+  inapp: ['You opened this inside another app (like Instagram or WhatsApp), which cannot install apps.', 'Tap the ⋮ or ··· menu and choose <b>Open in Chrome</b> (or <b>Open in Safari</b> on iPhone).', 'Then press Install app again.'],
+  'ios-safari': ['Tap the <span class="kbd">Share</span> button (the square with an arrow, at the bottom or top of Safari).', 'Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.', 'Open Lifeline from the new icon on your home screen. You need this for the lock-screen card on iPhone.'],
+  'ios-other': ['On iPhone, apps can be added from Safari or Chrome.', 'Tap <span class="kbd">Share</span> (in Chrome it is at the top right, next to the address bar), then <b>Add to Home Screen</b>.', 'If you do not see it, open this page in Safari and do the same.'],
+  android: ['Tap the <span class="kbd">⋮</span> menu at the top right of Chrome.', 'Tap <b>Install app</b> or <b>Add to Home screen</b>, then <b>Install</b>.', 'If neither is there, the app is probably installed already: look for Lifeline in your app drawer.'],
+  samsung: ['Tap the <span class="kbd">☰</span> menu at the bottom right.', 'Tap <b>Add page to</b>, then <b>Home screen</b>.'],
+  'android-firefox': ['Tap the <span class="kbd">⋮</span> menu.', 'Tap <b>Install</b> (or <b>Add to Home screen</b>).'],
+  'desktop-chrome': ['Look at the right end of the address bar for the install icon (a small screen with a down arrow) and click it.', 'Or open the <span class="kbd">⋮</span> menu, then <b>Cast, save and share</b>, then <b>Install page as app</b> (in Edge: <b>…</b> menu, <b>Apps</b>, <b>Install this site as an app</b>).', 'No install option? It may already be installed: check chrome://apps. The lock-screen card matters most on your phone, so install it there too.'],
+  'desktop-firefox': ['Firefox on computers cannot install web apps.', 'Open this site in Chrome or Edge to install it, or just install it on your phone.'],
+  'mac-safari': ['In Safari, open the <b>File</b> menu and choose <b>Add to Dock</b>.', 'The lock-screen card matters most on your phone, so install it there too.'],
+};
+
+async function installApp() {
+  const box = $('install-steps');
+  if (installEvent) {
+    installEvent.prompt();
+    const choice = await installEvent.userChoice.catch(() => null);
+    installEvent = null;
+    if (choice && choice.outcome === 'accepted') { markInstalled(); box.hidden = true; }
+    updateInstallUi();
+    return;
+  }
+  if (!canLink) {
+    box.replaceChildren(el('p', { text: 'Installing works on your Netlify site, not inside this preview. Open the site on your phone and press Install app there.' }));
+    box.hidden = false;
+    return;
+  }
+  const steps = INSTALL_STEPS[browserKind()];
+  const list = el('ol');
+  steps.forEach((html) => { const li = el('li'); li.innerHTML = html; list.append(li); }); // fixed text from INSTALL_STEPS only
+  box.replaceChildren(el('p', {}, el('strong', { text: 'Install it from your browser menu:' })), list);
+  box.hidden = false;
+}
+
 function updateInstallUi() {
   const text = $('install-text');
   const button = $('install-btn');
   if (isStandalone) {
     text.textContent = 'Installed. Lifeline opens from your home screen and works with no signal.';
     button.hidden = true;
-  } else if (installEvent) {
-    text.textContent = 'Install it like an app so it opens instantly and works with no signal.';
-    button.hidden = false;
-  } else if (isIos) {
-    text.textContent = 'In Safari, tap Share, then Add to Home Screen. You need this on iPhone for the lock-screen card.';
-    button.hidden = true;
-  } else {
-    text.textContent = canLink
-      ? 'Open your browser menu and choose Install app or Add to Home screen.'
-      : 'Once the site is on Netlify, you can install it from your phone\'s browser menu.';
-    button.hidden = true;
+    $('install-steps').hidden = true;
+    return;
   }
+  button.hidden = false;
+  button.textContent = installEvent ? 'Install app' : 'How to install';
+  text.textContent = isInstalled()
+    ? 'Installed on this device. Open Lifeline from your home screen or app list so it works with no signal.'
+    : 'Install it like an app so it opens instantly, works with no signal and can keep your card on the lock screen.';
 }
 
 function printCard() {
@@ -1422,15 +1492,9 @@ function startOwnerApp() {
     $('builtin-note').textContent = ok ? 'Copied. Paste it into the Medical notes field of your phone\'s Medical ID.' : 'Could not copy here.';
   });
 
-  $('install-btn').addEventListener('click', async () => {
-    if (!installEvent) return;
-    installEvent.prompt();
-    await installEvent.userChoice.catch(() => null);
-    installEvent = null;
-    updateInstallUi();
-  });
+  $('install-btn').addEventListener('click', installApp);
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvent = e; updateInstallUi(); });
-  window.addEventListener('appinstalled', () => { installEvent = null; updateInstallUi(); });
+  window.addEventListener('appinstalled', () => { installEvent = null; markInstalled(); updateInstallUi(); refresh(); });
 
   $('scan-input').addEventListener('change', (e) => { if (e.target.files[0]) scanPrescription(e.target.files[0]); });
   $('check-btn').addEventListener('click', checkInfo);
@@ -1447,6 +1511,7 @@ function startOwnerApp() {
     if (e.key === 'Escape') { if (!$('sheet').hidden) closeSheet(); stopSiren(); }
   });
 
+  if (isStandalone) markInstalled();
   updateAiUi();
   updateInstallUi();
   refresh();

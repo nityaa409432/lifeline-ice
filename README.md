@@ -17,6 +17,8 @@ Plain HTML, CSS and JavaScript. No framework, no database, no sign-up. Works off
 | **Readiness score** | Home shows how ready you are (details, contacts with country codes, lock screen, installed) with a Fix link for each gap. |
 | **AI: scan a prescription, check my info** | Photo of a prescription fills in medicines; "Check my info" spots gaps a paramedic would ask about. |
 | **Offline app (PWA)** | `manifest.webmanifest` and `sw.js` make it installable. After the first visit it opens with no signal. |
+| **India numbers** | 112 is the main button (India's single emergency number). Ambulance 108, Police 100 and Fire 101 sit next to it as one-tap buttons, on Home, in SOS and on the responder page. |
+| **Install button** | Shows Chrome's real install dialog when the browser offers one. Safari, Firefox, in-app browsers (Instagram, WhatsApp) and already-installed apps never offer it, so the button then shows the exact steps for that browser. |
 | Also | Family profiles (up to 8), print a wallet-size card with the QR, copy details into the phone's built-in Medical ID, backup and restore. |
 
 ## Honest limits (worth saying in a demo)
@@ -61,7 +63,9 @@ Lock-screen cards, installing and the QR link all need **https**, which Netlify 
 5. In the project: **Project configuration**, **Environment variables**, **Add a variable**: key `GEMINI_API_KEY`, value your key. Then **Deploys**, **Trigger deploy**.
 6. Open the site on your phone and press **Pin to lock screen**.
 
-After you change any file, also change `VERSION` at the top of `sw.js` (for example `lifeline-v4.0.1`), so phones that installed the app fetch the new version.
+If **Install app** only shows steps: that is normal on iPhone, in Firefox and inside Instagram or WhatsApp's built-in browser. Open the site in Chrome (Android) or Safari (iPhone) and follow the steps.
+
+After you change any file, also change `VERSION` at the top of `sw.js` (for example `lifeline-v4.1.1`), so phones that installed the app fetch the new version.
 
 ## Try it on your phone
 

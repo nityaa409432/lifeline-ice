@@ -6,7 +6,7 @@
    - Re-pins the card when Chrome wakes it (periodic sync).
    Change VERSION whenever you edit the app, so phones fetch the new files.
    ========================================================= */
-const VERSION = 'lifeline-v4.0.0';
+const VERSION = 'lifeline-v4.1.0';
 const QR_LIB = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'ai.js', 'manifest.webmanifest',
@@ -16,7 +16,8 @@ const FILES = [
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(VERSION);
-    await cache.addAll(FILES);
+    // One missing file must not stop the whole app from installing
+    await Promise.allSettled(FILES.map((f) => cache.add(f)));
     try { await cache.add(new Request(QR_LIB, { mode: 'cors' })); } catch (err) { /* cached on first use instead */ }
     self.skipWaiting();
   })());

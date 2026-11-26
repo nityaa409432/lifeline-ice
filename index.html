@@ -13,6 +13,7 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
+  <link rel="icon" href="icons/icon-512.png" sizes="512x512" type="image/png">
   <meta name="apple-mobile-web-app-title" content="Lifeline">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
@@ -81,6 +82,7 @@
             <a class="btn btn-call" id="home-call" href="tel:112">Call 112</a>
             <button type="button" class="btn btn-ghost" id="siren-btn" aria-pressed="false">Siren and flash</button>
           </div>
+          <div class="other-numbers" id="home-numbers"></div>
         </section>
 
         <!-- Readiness -->
@@ -162,8 +164,9 @@
           <h2 id="install-title">Install Lifeline</h2>
           <p class="muted" id="install-text">Install it like an app so it opens instantly and works with no signal.</p>
           <div class="actions">
-            <button type="button" class="btn btn-primary btn-small" id="install-btn" hidden>Install app</button>
+            <button type="button" class="btn btn-primary btn-small" id="install-btn">Install app</button>
           </div>
+          <div class="install-steps" id="install-steps" aria-live="polite" hidden></div>
         </section>
       </div>
     </section>
@@ -343,6 +346,7 @@
     </div>
     <p class="sheet-status" id="sheet-status" aria-live="polite"></p>
     <a class="btn btn-call btn-block" id="sheet-call" href="tel:112">Call 112</a>
+    <div class="other-numbers" id="sheet-numbers"></div>
     <p class="section-label">Send this message</p>
     <p class="sheet-msg" id="sheet-msg"></p>
     <div class="sheet-targets" id="sheet-targets"></div>
